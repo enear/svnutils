@@ -148,7 +148,7 @@ def searchAndUpdate(svnUrl, credentials, leafCheckoutType, basePath=""):
             if path.strip('/') in LEAF_CHECKOUT_TYPES:
                 if leafCheckoutType in path.strip('/') :
                     update(os.path.join(getHeadDir(svnUrl),newPath), credentials)
-                else:
+                elif path.endswith('/'):
                     continue
             else:
                 searchAndUpdate(svnUrl, credentials, leafCheckoutType, newPath)
