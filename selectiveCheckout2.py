@@ -109,11 +109,11 @@ def update(path, credentials):
 
 
 def sortCheckoutType(startup):
-    if(startup.checkoutType == CHECKOUT_FULL):
+    if startup.checkoutType == CHECKOUT_FULL:
         checkout(startup.svnUrl, startup.credentials, SVN_CHECKOUT_INFINITY)
-    elif(startup.checkoutType == CHECKOUT_EMPTY):
+    elif startup.checkoutType == CHECKOUT_EMPTY:
         checkout(startup.svnUrl, startup.credentials, SVN_CHECKOUT_EMPTY)
-    elif(startup.checkoutType in LEAF_CHECKOUT_TYPES):
+    elif startup.checkoutType in LEAF_CHECKOUT_TYPES:
         checkout(startup.svnUrl, startup.credentials, SVN_CHECKOUT_EMPTY)
         searchAndUpdate(startup.svnUrl, startup.credentials, startup.checkoutType, "")
     else:
@@ -147,8 +147,7 @@ def searchAndUpdate(svnUrl, credentials, leafCheckoutType, basePath=""):
             newPath = basePath+path
             if path.strip('/') in LEAF_CHECKOUT_TYPES:
                 if leafCheckoutType in path.strip('/') :
-                    # update(os.path.join(getHeadDir(svnUrl),newPath), credentials)
-                    print os.path.join(getHeadDir(svnUrl),newPath)
+                    update(os.path.join(getHeadDir(svnUrl),newPath), credentials)
                 else:
                     continue
             else:
@@ -184,7 +183,7 @@ def interactiveCall(argv):
 
     try:
         opts, args = getopt.getopt(argv,"h:u:c:d:",["url=","checkout=","destination="])
-        if(len(opts) < 3):
+        if len(opts) < 3:
             print usage()
             sys.exit(2)
 
@@ -209,31 +208,10 @@ def interactiveCall(argv):
 
     return startup
 
-def debugCall(argv):
-    svnUrl = "https://svn.ingg.com/svn/corehub/com/ingg/corehub/api/"
-
-    #checkoutType =  "empty"
-    checkoutType =  "trunk"
-
-    destinationFolder=r"D:\workspace\dev\python\tmp2"
-
-    credentials = Credentials("ext.diogo.ferreira", "TBD")
-    startup = StartupParams(credentials)
-    startup.checkoutType = checkoutType
-    startup.destinationFolder= destinationFolder
-    startup.svnUrl=svnUrl
-
-    return startup
-
 def main(argv):
     startup = interactiveCall(argv)
-    #startup = debugCall(argv)
-
-    print startup
-
     os.chdir(startup.destinationFolder)
     sortCheckoutType(startup)
-
 
 if __name__ == '__main__':
     main(sys.argv[1:])
