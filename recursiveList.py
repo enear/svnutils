@@ -13,7 +13,6 @@ import subprocess
 import re
 import argparse
 from collections import deque
-from multiprocessing import Pool
 
 SVN_BASE_CALL = ["svn", "--non-interactive", "--no-auth-cache"]
 SVN_DEPTH = "immediates"
@@ -39,7 +38,7 @@ def exclude_by_patterns(excludes, strings):
 def list_svn(svnUrl):
     args = SVN_BASE_CALL[:]
     args.append("ls")
-    args.extend(svnUrl.split())
+    args.append(svnUrl)
     args.append("--depth")
     args.append(SVN_DEPTH)
     output = exec_and_output(args)
@@ -53,25 +52,23 @@ def join_sub_paths(path, subpaths):
     return [path + subpath for subpath in subpaths]
 
 def print_path(svnURl, path):
-    print svnURl + "/" + path
+    print path
 
 def list_svn_recursive_worker(svnUrl, tasks, stops = [], filters = [],
                               callback = print_path):
     task = tasks.pop()
-    # Get list paths
+
+    # Executes callback for each path
     new_subpaths = list_svn(svnUrl + task)
-    # Construct full paths
     new_paths = join_sub_paths(task, new_subpaths)
-    # Filter paths new 'filters'
     filtered_new_paths = filter_by_patterns(filters, new_paths)
-    # Get only directories
-    new_paths_dirs = filter_dirs(new_paths)
-    # Exclude paths with 'stops'
-    excluded_new_paths_dirs = exclude_by_patterns(stops, new_paths_dirs)
-    # Add new tasks has the excluded tasks
-    tasks.extend(excluded_new_paths_dirs)
     for path in filtered_new_paths:
         callback(svnUrl, path)
+
+    # Recursively list all directories
+    new_paths_dirs = filter_dirs(new_paths)
+    excluded_new_paths_dirs = exclude_by_patterns(stops, new_paths_dirs)
+    tasks.extend(excluded_new_paths_dirs)
 
 def list_svn_recursive(svnUrl, stops = [], filters = [], callback = print_path):
     tasks = deque([""])
