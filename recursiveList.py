@@ -12,10 +12,13 @@
 import subprocess
 import re
 import argparse
-from collections import deque
+import logging
+from multiprocessing import (Process, JoinableQueue)
+from threading import Lock
 
 SVN_BASE_CALL = ["svn", "--non-interactive", "--no-auth-cache"]
 SVN_DEPTH = "immediates"
+DEFAULT_NR_PROCESSES = 3
 
 def exec_and_output(args):
     return subprocess.check_output(args)
@@ -56,7 +59,7 @@ def print_path(svnURl, path):
 
 def list_svn_recursive_worker(svnUrl, tasks, stops = [], filters = [],
                               callback = print_path):
-    task = tasks.pop()
+    task = tasks.get()
 
     # Executes callback for each path
     new_subpaths = list_svn(svnUrl + task)
@@ -68,16 +71,30 @@ def list_svn_recursive_worker(svnUrl, tasks, stops = [], filters = [],
     # Recursively list all directories
     new_paths_dirs = filter_dirs(new_paths)
     excluded_new_paths_dirs = exclude_by_patterns(stops, new_paths_dirs)
-    tasks.extend(excluded_new_paths_dirs)
+    for excluded_new_path_dir in excluded_new_paths_dirs:
+        tasks.put(excluded_new_path_dir)
+        p = Process(target = list_svn_recursive_worker,
+                    args = (svnUrl, tasks, stops, filters, callback))
+        p.start()
 
-def list_svn_recursive(svnUrl, stops = [], filters = [], callback = print_path):
-    tasks = deque([""])
-    while tasks:
-        list_svn_recursive_worker(svnUrl, tasks, stops, filters, callback)
+    # Finishes this task
+    tasks.task_done()
+
+def list_svn_recursive_p(svnUrl, procs = DEFAULT_NR_PROCESSES, stops = [],
+                         filters = [], callback = print_path):
+    tasks = JoinableQueue(procs)
+    tasks.put("")
+    p = Process(target = list_svn_recursive_worker,
+                    args = (svnUrl, tasks, stops, filters, callback))
+    p.start()
+
+    tasks.join()
 
 def parse_args():
     parser = argparse.ArgumentParser(description='List subversion URL recursively.')
     parser.add_argument('url', help = 'the repository url')
+    parser.add_argument('--procs', type = int, default = DEFAULT_NR_PROCESSES,
+                        help = "maximum number of parallel list processes")
     parser.add_argument('--stop', metavar = 's', nargs = '*',
                         help = 'stop recursion pattern')
     parser.add_argument('--filter', metavar = 'f', nargs = '*',
@@ -86,7 +103,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    list_svn_recursive(args.url, args.stop, args.filter)
+    list_svn_recursive_p(args.url, args.procs, args.stop, args.filter)
 
 if __name__ == '__main__':
     main()
