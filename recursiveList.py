@@ -1,19 +1,9 @@
-#-------------------------------------------------------------------------------
-# Name:        module1
-# Purpose:
-#
-# Author:      Emanuel
-#
-# Created:     12/10/2016
-# Copyright:   (c) Emanuel 2016
-# Licence:     <your licence>
-#-------------------------------------------------------------------------------
-
 import subprocess
 import re
 import argparse
 import logging
 import threading
+import logging
 from queue import Queue
 from threading import Thread
 
@@ -22,7 +12,8 @@ SVN_DEPTH = "immediates"
 DEFAULT_NR_PROCESSES = 3
 
 def exec_and_output(args):
-    return subprocess.getoutput(args)
+    return subprocess.check_output(args, shell=True, universal_newlines=True,
+                                   stderr = subprocess.PIPE)
 
 def match_any(patterns, string):
     if patterns:
@@ -61,25 +52,32 @@ def print_path(path):
 def list_svn_recursive_worker(svn_url, tasks, stops = [], filters = [],
                               callback = print_path):
     while True:
-        task = tasks.get()
-        if task is None:
+        try:
+            task = tasks.get()
+            if task is None:
+                tasks.task_done()
+                break
+            else:
+                # Executes callback for each path
+                new_subpaths = list_svn(svn_url + task)
+                new_paths = join_sub_paths(task, new_subpaths)
+                filtered_new_paths = filter_by_patterns(filters, new_paths)
+                for path in filtered_new_paths:
+                    callback(path)
+
+                # Recursively list all directories
+                new_paths_dirs = filter_dirs(new_paths)
+                excluded_new_paths_dirs = exclude_by_patterns(stops, new_paths_dirs)
+                for excluded_new_path_dir in excluded_new_paths_dirs:
+                    tasks.put(excluded_new_path_dir)
+
+                # Finishes this task
+                tasks.task_done()
+        except subprocess.CalledProcessError as ex:
+            logging.error(ex)
+            logging.error(ex.stderr)
             tasks.task_done()
-            break
         else:
-            # Executes callback for each path
-            new_subpaths = list_svn(svn_url + task)
-            new_paths = join_sub_paths(task, new_subpaths)
-            filtered_new_paths = filter_by_patterns(filters, new_paths)
-            for path in filtered_new_paths:
-                callback(path)
-
-            # Recursively list all directories
-            new_paths_dirs = filter_dirs(new_paths)
-            excluded_new_paths_dirs = exclude_by_patterns(stops, new_paths_dirs)
-            for excluded_new_path_dir in excluded_new_paths_dirs:
-                tasks.put(excluded_new_path_dir)
-
-            # Finishes this task
             tasks.task_done()
 
 def list_svn_recursive(svn_url, nthreads = DEFAULT_NR_PROCESSES, stops = [],
