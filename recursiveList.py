@@ -52,33 +52,26 @@ def print_path(path):
 def list_svn_recursive_worker(svn_url, tasks, stops = [], filters = [],
                               callback = print_path):
     while True:
+        task = tasks.get()
+
         try:
-            task = tasks.get()
-            if task is None:
-                tasks.task_done()
-                break
-            else:
-                # Executes callback for each path
-                new_subpaths = list_svn(svn_url + task)
-                new_paths = join_sub_paths(task, new_subpaths)
-                filtered_new_paths = filter_by_patterns(filters, new_paths)
-                for path in filtered_new_paths:
-                    callback(path)
+            # Executes callback for each path
+            new_subpaths = list_svn(svn_url + task)
+            new_paths = join_sub_paths(task, new_subpaths)
+            filtered_new_paths = filter_by_patterns(filters, new_paths)
+            for path in filtered_new_paths:
+                callback(path)
 
-                # Recursively list all directories
-                new_paths_dirs = filter_dirs(new_paths)
-                excluded_new_paths_dirs = exclude_by_patterns(stops, new_paths_dirs)
-                for excluded_new_path_dir in excluded_new_paths_dirs:
-                    tasks.put(excluded_new_path_dir)
-
-                # Finishes this task
-                tasks.task_done()
+            # Recursively list all directories
+            new_paths_dirs = filter_dirs(new_paths)
+            excluded_new_paths_dirs = exclude_by_patterns(stops, new_paths_dirs)
+            for excluded_new_path_dir in excluded_new_paths_dirs:
+                tasks.put(excluded_new_path_dir)
         except subprocess.CalledProcessError as ex:
             logging.error(ex)
             logging.error(ex.stderr)
-            tasks.task_done()
-        else:
-            tasks.task_done()
+
+        tasks.task_done()
 
 def list_svn_recursive(svn_url, nthreads = DEFAULT_NR_PROCESSES, stops = [],
                        filters = [], callback = print_path):
@@ -87,13 +80,10 @@ def list_svn_recursive(svn_url, nthreads = DEFAULT_NR_PROCESSES, stops = [],
     for i in range(nthreads):
         t = Thread(target = list_svn_recursive_worker,
                    args = (svn_url, tasks, stops, filters, callback))
+        t.daemon = True
         t.start()
 
     tasks.put("")
-    tasks.join()
-
-    for i in range(nthreads):
-        tasks.put(None)
     tasks.join()
 
 def parse_args():
