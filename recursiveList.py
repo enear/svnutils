@@ -95,11 +95,23 @@ def parse_args():
                         help = 'stop recursion pattern')
     parser.add_argument('--filter', metavar = 'f', nargs = '*',
                         help = 'filter result pattern')
+    parser.add_argument('--only-trunk-dirs', action='store_true',
+                        help = "Lists only trunk directories")
     return parser.parse_args()
 
 def main():
     args = parse_args()
-    list_svn_recursive(args.url, args.nthreads, args.stop, args.filter)
+
+    url = args.url
+    nthreads = args.nthreads
+    stops = args.stop
+    filters = args.filter
+
+    if args.only_trunk_dirs:
+        stops = ["trunk/$", "branch/$", "tags/$"]
+        filters = [".*/trunk/"]
+
+    list_svn_recursive(url, nthreads, stops, filters)
 
 if __name__ == '__main__':
     main()
