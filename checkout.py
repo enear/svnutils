@@ -31,11 +31,15 @@ def _parse_args():
 def _parse_line(line, destination):
     return destination + "/" + line.rstrip('\n')
 
+def on_complete(path):
+  print(path)
+
 def checkout(url, destination, file):
     _checkout(url, destination)
     for line in file:
         path = _parse_line(line, destination)
         _update(path)
+        on_complete(path)
 
 def main():
     parser = _parse_args()
