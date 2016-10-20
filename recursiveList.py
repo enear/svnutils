@@ -108,7 +108,7 @@ def main():
     filters = args.filter
 
     if args.only_trunk_dirs:
-        stops = ["trunk/$", "branch/$", "tags/$"]
+        stops = ["trunk/$", "branches/$", "tags/$"]
         filters = [".*/trunk/"]
 
     list_svn_recursive(url, nthreads, stops, filters)
