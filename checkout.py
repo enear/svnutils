@@ -1,5 +1,6 @@
 import subprocess
 import argparse
+from os.path import isdir
 
 SVN_COMMAND = "svn"
 SVN_DETPH_EMPTY = "empty"
@@ -35,7 +36,8 @@ def on_complete(path):
   print(path)
 
 def checkout(url, destination, file):
-    _checkout(url, destination)
+    if not isdir(destination):
+        _checkout(url, destination)
     for line in file:
         path = _parse_line(line, destination)
         _update(path)
