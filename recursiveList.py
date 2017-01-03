@@ -7,7 +7,7 @@ import logging
 from queue import Queue
 from threading import Thread
 
-SVN_BASE_CALL = ["svn", "--non-interactive", "--no-auth-cache"]
+SVN_BASE_CALL = ["svn"]
 SVN_DEPTH = "immediates"
 DEFAULT_NR_PROCESSES = 3
 
