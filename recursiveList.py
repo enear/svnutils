@@ -12,7 +12,7 @@ SVN_DEPTH = "immediates"
 DEFAULT_NR_PROCESSES = 3
 
 def exec_and_output(args):
-    return subprocess.check_output(args, shell=True, universal_newlines=True,
+    return subprocess.check_output(args, universal_newlines=True,
                                    stderr = subprocess.PIPE)
 
 def match_any(patterns, string):
