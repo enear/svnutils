@@ -8,6 +8,7 @@ import threading
 import logging
 from queue import Queue
 from threading import Thread
+from getpass import getpass
 
 SVN_BASE_CALL = ["svn"]
 SVN_DEPTH = "immediates"
@@ -32,13 +33,16 @@ def filter_by_patterns(filters, strings):
 def exclude_by_patterns(excludes, strings):
     return [string for string in strings if not match_any(excludes, string)]
 
-def list_svn(svn_url, username):
+def list_svn(svn_url, username, password):
     args = SVN_BASE_CALL[:]
     args.append("ls")
     args.append(svn_url)
     if username:
         args.append("--username")
         args.append(username)
+    if password:
+        args.append("--password")
+        args.append(password)
     args.append("--depth")
     args.append(SVN_DEPTH)
     args.append("--non-interactive")
@@ -59,7 +63,8 @@ def print_worker(print_queue):
             break
         print(item)
 
-def list_svn_recursive_worker(svn_url, username, list_queue, print_queue,
+def list_svn_recursive_worker(svn_url, username, password,
+                              list_queue, print_queue,
                               stops, filters):
     while True:
         task = list_queue.get()
@@ -68,7 +73,7 @@ def list_svn_recursive_worker(svn_url, username, list_queue, print_queue,
 
         try:
             # Executes callback for each path
-            new_subpaths = list_svn(svn_url + task, username)
+            new_subpaths = list_svn(svn_url + task, username, password)
             new_paths = join_sub_paths(task, new_subpaths)
             filtered_new_paths = filter_by_patterns(filters, new_paths)
             for path in filtered_new_paths:
@@ -80,12 +85,12 @@ def list_svn_recursive_worker(svn_url, username, list_queue, print_queue,
             for excluded_new_path_dir in excluded_new_paths_dirs:
                 list_queue.put(excluded_new_path_dir)
         except subprocess.CalledProcessError as ex:
-            logging.error(ex)
             logging.error(ex.stderr)
 
         list_queue.task_done()
 
-def list_svn_recursive(svn_url, username, nthreads = DEFAULT_NR_PROCESSES,
+def list_svn_recursive(svn_url, username, password,
+                       nthreads = DEFAULT_NR_PROCESSES,
                        stops = [], filters = []):
     print_queue = Queue()
     list_queue = Queue()
@@ -98,7 +103,8 @@ def list_svn_recursive(svn_url, username, nthreads = DEFAULT_NR_PROCESSES,
     list_threads = []
     for i in range(nthreads):
         list_thread = Thread(target = list_svn_recursive_worker,
-                             args = (svn_url, username, list_queue, print_queue,
+                             args = (svn_url, username, password,
+                                     list_queue, print_queue,
                                      stops, filters))
         list_threads.append(list_thread)
         list_thread.start()
@@ -130,6 +136,8 @@ def parse_args():
     parser.add_argument('--only-trunk-dirs', action='store_true',
                         help = "Lists only trunk directories")
     parser.add_argument('--username', default=None, help="svn username")
+    parser.add_argument('--ask-password', action='store_true',
+                        help="ask for svn password")
     return parser.parse_args()
 
 def main():
@@ -140,12 +148,17 @@ def main():
     stops = args.stop
     filters = args.filter
     username = args.username
+    ask_password = args.ask_password
+
+    password = None
+    if ask_password:
+        password = getpass('Password: ')
 
     if args.only_trunk_dirs:
         stops = ["trunk/$", "branches/$", "tags/$"]
         filters = [".*/trunk/"]
 
-    list_svn_recursive(url, username, nthreads, stops, filters)
+    list_svn_recursive(url, username, password, nthreads, stops, filters)
 
 if __name__ == '__main__':
     main()
