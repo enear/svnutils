@@ -32,10 +32,13 @@ def filter_by_patterns(filters, strings):
 def exclude_by_patterns(excludes, strings):
     return [string for string in strings if not match_any(excludes, string)]
 
-def list_svn(svnUrl):
+def list_svn(svn_url, username):
     args = SVN_BASE_CALL[:]
     args.append("ls")
-    args.append(svnUrl)
+    args.append(svn_url)
+    if username:
+        args.append("--username")
+        args.append(username)
     args.append("--depth")
     args.append(SVN_DEPTH)
     args.append("--non-interactive")
@@ -56,7 +59,8 @@ def print_worker(print_queue):
             break
         print(item)
 
-def list_svn_recursive_worker(svn_url, list_queue, print_queue, stops, filters):
+def list_svn_recursive_worker(svn_url, username, list_queue, print_queue,
+                              stops, filters):
     while True:
         task = list_queue.get()
         if task is None:
@@ -64,7 +68,7 @@ def list_svn_recursive_worker(svn_url, list_queue, print_queue, stops, filters):
 
         try:
             # Executes callback for each path
-            new_subpaths = list_svn(svn_url + task)
+            new_subpaths = list_svn(svn_url + task, username)
             new_paths = join_sub_paths(task, new_subpaths)
             filtered_new_paths = filter_by_patterns(filters, new_paths)
             for path in filtered_new_paths:
@@ -81,7 +85,7 @@ def list_svn_recursive_worker(svn_url, list_queue, print_queue, stops, filters):
 
         list_queue.task_done()
 
-def list_svn_recursive(svn_url, nthreads = DEFAULT_NR_PROCESSES,
+def list_svn_recursive(svn_url, username, nthreads = DEFAULT_NR_PROCESSES,
                        stops = [], filters = []):
     print_queue = Queue()
     list_queue = Queue()
@@ -94,7 +98,7 @@ def list_svn_recursive(svn_url, nthreads = DEFAULT_NR_PROCESSES,
     list_threads = []
     for i in range(nthreads):
         list_thread = Thread(target = list_svn_recursive_worker,
-                             args = (svn_url, list_queue, print_queue,
+                             args = (svn_url, username, list_queue, print_queue,
                                      stops, filters))
         list_threads.append(list_thread)
         list_thread.start()
@@ -125,6 +129,7 @@ def parse_args():
                         help = 'filter result pattern')
     parser.add_argument('--only-trunk-dirs', action='store_true',
                         help = "Lists only trunk directories")
+    parser.add_argument('--username', default=None, help="svn username")
     return parser.parse_args()
 
 def main():
@@ -134,12 +139,13 @@ def main():
     nthreads = args.nthreads
     stops = args.stop
     filters = args.filter
+    username = args.username
 
     if args.only_trunk_dirs:
         stops = ["trunk/$", "branches/$", "tags/$"]
         filters = [".*/trunk/"]
 
-    list_svn_recursive(url, nthreads, stops, filters)
+    list_svn_recursive(url, username, nthreads, stops, filters)
 
 if __name__ == '__main__':
     main()
