@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import subprocess
 import re
 import argparse
@@ -36,6 +38,7 @@ def list_svn(svnUrl):
     args.append(svnUrl)
     args.append("--depth")
     args.append(SVN_DEPTH)
+    args.append("--non-interactive")
     output = exec_and_output(args)
     paths = output.splitlines()
     return paths
@@ -46,13 +49,18 @@ def filter_dirs(paths):
 def join_sub_paths(path, subpaths):
     return [path + subpath for subpath in subpaths]
 
-def print_path(path):
-    print(path)
-
-def list_svn_recursive_worker(svn_url, tasks, stops = [], filters = [],
-                              callback = print_path):
+def print_worker(print_queue):
     while True:
-        task = tasks.get()
+        item = print_queue.get()
+        if item is None:
+            break
+        print(item)
+
+def list_svn_recursive_worker(svn_url, list_queue, print_queue, stops, filters):
+    while True:
+        task = list_queue.get()
+        if task is None:
+            break
 
         try:
             # Executes callback for each path
@@ -60,31 +68,51 @@ def list_svn_recursive_worker(svn_url, tasks, stops = [], filters = [],
             new_paths = join_sub_paths(task, new_subpaths)
             filtered_new_paths = filter_by_patterns(filters, new_paths)
             for path in filtered_new_paths:
-                callback(path)
+                print_queue.put(path)
 
             # Recursively list all directories
             new_paths_dirs = filter_dirs(new_paths)
             excluded_new_paths_dirs = exclude_by_patterns(stops, new_paths_dirs)
             for excluded_new_path_dir in excluded_new_paths_dirs:
-                tasks.put(excluded_new_path_dir)
+                list_queue.put(excluded_new_path_dir)
         except subprocess.CalledProcessError as ex:
             logging.error(ex)
             logging.error(ex.stderr)
 
-        tasks.task_done()
+        list_queue.task_done()
 
-def list_svn_recursive(svn_url, nthreads = DEFAULT_NR_PROCESSES, stops = [],
-                       filters = [], callback = print_path):
-    tasks = Queue()
+def list_svn_recursive(svn_url, nthreads = DEFAULT_NR_PROCESSES,
+                       stops = [], filters = []):
+    print_queue = Queue()
+    list_queue = Queue()
 
+    # Starts the print worker
+    print_thread = Thread(target = print_worker, args = (print_queue,))
+    print_thread.start()
+
+    # Starts the recursive list workers
+    list_threads = []
     for i in range(nthreads):
-        t = Thread(target = list_svn_recursive_worker,
-                   args = (svn_url, tasks, stops, filters, callback))
-        t.daemon = True
-        t.start()
+        list_thread = Thread(target = list_svn_recursive_worker,
+                             args = (svn_url, list_queue, print_queue,
+                                     stops, filters))
+        list_threads.append(list_thread)
+        list_thread.start()
 
-    tasks.put("")
-    tasks.join()
+    # Wait for list workers to finish
+    list_queue.put("")
+    list_queue.join()
+
+    # Terminate list workers
+    for i in range(nthreads):
+        list_queue.put(None)
+    for list_thread in list_threads:
+        list_thread.join()
+
+    # Terminate printer worker
+    print_queue.put(None)
+    print_thread.join()
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='List subversion URL recursively.')
