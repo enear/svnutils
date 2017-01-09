@@ -1,12 +1,18 @@
 import subprocess
 import argparse
 import logging
+import re
 from os.path import isdir
 from getpass import getpass
+from urllib.parse import urlparse
 
 SVN_COMMAND = "svn"
 SVN_DEPTH_EMPTY = "empty"
 SVN_DEPTH_INFINITY = "infinity"
+
+def _exec_and_output(args):
+    return subprocess.check_output(args, universal_newlines=True,
+                                   stderr = subprocess.PIPE)
 
 def _checkout(url, path, username, password):
     args = [SVN_COMMAND]
@@ -42,6 +48,29 @@ def _update(path, username, password):
     args.append(path)
     return subprocess.run(args, check=True)
 
+def _info(path):
+    args = [SVN_COMMAND]
+    args.append("info")
+    args.append(path)
+    output = _exec_and_output(args)
+    parsed = {}
+    line_regex = re.compile("^([^:]+): (.*)$")
+    for line in output.splitlines():
+        match = line_regex.search(line)
+        if match:
+            key = match.group(1)
+            value = match.group(2)
+            parsed[key] = value
+    return parsed
+
+def _validate_url(url, destination):
+    info = _info(destination)
+    info_url = info['URL']
+    parsed_url = urlparse(url)
+    parsed_info_url = urlparse(info_url)
+    if parsed_url != parsed_info_url:
+        raise Exception("Destination URL is not the same as input URL")
+
 def _parse_args():
     parser = argparse.ArgumentParser(
       description = "Checkout infinity paths in input file")
@@ -63,6 +92,8 @@ def checkout(url, destination, file, username, password):
     try:
         if not isdir(destination):
             _checkout(url, destination, username, password)
+        else:
+            _validate_url(url, destination)
         for line in file:
             path = _parse_line(line, destination)
             _update(path, username, password)
