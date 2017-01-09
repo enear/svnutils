@@ -10,6 +10,7 @@ def _checkout(url, path):
     return subprocess.run([SVN_COMMAND, "co",
                            "--depth", SVN_DETPH_EMPTY,
                            "--quiet",
+                           "--non-interactive",
                            url, path],
                           check=True)
 
@@ -18,6 +19,7 @@ def _update(path):
                           "--parents",
                           "--set-depth", SVN_DETPH_INFINITY,
                           "--quiet",
+                          "--non-interactive",
                           path],
                           check=True)
 
