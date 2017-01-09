@@ -1,5 +1,6 @@
 import subprocess
 import argparse
+import logging
 from os.path import isdir
 from getpass import getpass
 
@@ -59,12 +60,15 @@ def on_complete(path):
   print(path)
 
 def checkout(url, destination, file, username, password):
-    if not isdir(destination):
-        _checkout(url, destination, username, password)
-    for line in file:
-        path = _parse_line(line, destination)
-        _update(path, username, password)
-        on_complete(path)
+    try:
+        if not isdir(destination):
+            _checkout(url, destination, username, password)
+        for line in file:
+            path = _parse_line(line, destination)
+            _update(path, username, password)
+            on_complete(path)
+    except subprocess.CalledProcessError as ex:
+        logging.error(ex.stderr)
 
 def main():
     parser = _parse_args()
