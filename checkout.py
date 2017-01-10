@@ -82,15 +82,18 @@ def _parse_args():
     parser.add_argument('--username', default=None, help="svn username")
     parser.add_argument('--ask-password', action='store_true',
                         help="ask for svn password")
+    parser.add_argument('--quiet', action='store_true',
+                        help='Does not output to stdout')
     return parser.parse_args()
 
 def _parse_line(line, destination):
     return destination + "/" + line.rstrip('\n')
 
-def on_complete(path):
-  print(path)
+def on_complete(path, quiet):
+    if not quiet:
+        print(path)
 
-def checkout(url, destination, file, username, password):
+def checkout(url, destination, file, username, password, quiet):
     try:
         if not isdir(destination):
             _checkout(url, destination, username, password)
@@ -99,7 +102,7 @@ def checkout(url, destination, file, username, password):
         for line in file:
             path = _parse_line(line, destination)
             _update(path, username, password)
-            on_complete(path)
+            on_complete(path, quiet)
     except Exception as ex:
         logging.error(ex)
 
@@ -114,9 +117,10 @@ def main():
     password = None
     if ask_password:
         password = getpass('Password: ')
+    quiet = parser.quiet
 
     with open(input_path, 'r') as file:
-      checkout(url, destination, file, username, password)
+      checkout(url, destination, file, username, password, quiet)
 
 if __name__ == "__main__":
     main()

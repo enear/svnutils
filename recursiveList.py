@@ -57,12 +57,13 @@ def filter_dirs(paths):
 def join_sub_paths(path, subpaths):
     return [path + subpath for subpath in subpaths]
 
-def output_worker(output_queue, output_file):
+def output_worker(output_queue, output_file, quiet):
     while True:
         item = output_queue.get()
         if item is None:
             break
-        print(item)
+        if not quiet:
+            print(item)
         if output_file:
             output_file.write(item + '\n')
 
@@ -95,7 +96,7 @@ def list_svn_recursive_worker(svn_url, username, password,
 def list_svn_recursive(svn_url, username, password,
                        nthreads = DEFAULT_NR_PROCESSES,
                        stops = [], filters = [],
-                       output_path = None):
+                       output_path = None, quiet = False):
     output_queue = Queue()
     list_queue = Queue()
 
@@ -105,7 +106,8 @@ def list_svn_recursive(svn_url, username, password,
         output_file = open(output_path, 'w')
 
     # Starts the print worker
-    output_thread = Thread(target = output_worker, args = (output_queue, output_file))
+    output_thread = Thread(target = output_worker,
+                           args = (output_queue, output_file, quiet))
     output_thread.start()
 
     # Starts the recursive list workers
@@ -150,7 +152,10 @@ def parse_args():
     parser.add_argument('--username', default=None, help="svn username")
     parser.add_argument('--ask-password', action='store_true',
                         help="ask for svn password")
-    parser.add_argument('--output-path', default=None, help="Path to output result")
+    parser.add_argument('--output-path', default=None,
+                        help="Path to output result")
+    parser.add_argument('--quiet', action='store_true',
+                        help="Does not output to stdout")
     return parser.parse_args()
 
 def main():
@@ -163,6 +168,7 @@ def main():
     username = args.username
     ask_password = args.ask_password
     output_path = args.output_path
+    quiet = args.quiet
 
     password = None
     if ask_password:
@@ -172,7 +178,9 @@ def main():
         stops = ["trunk/$", "branches/$", "tags/$"]
         filters = [".*/trunk/"]
 
-    list_svn_recursive(url, username, password, nthreads, stops, filters, output_path)
+    list_svn_recursive(url, username, password,
+                       nthreads, stops, filters,
+                       output_path, quiet)
 
 if __name__ == '__main__':
     main()
