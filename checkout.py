@@ -98,8 +98,8 @@ def checkout(url, destination, file, username, password):
             path = _parse_line(line, destination)
             _update(path, username, password)
             on_complete(path)
-    except subprocess.CalledProcessError as ex:
-        logging.error(ex.stderr)
+    except Exception as ex:
+        logging.error(ex)
 
 def main():
     parser = _parse_args()
