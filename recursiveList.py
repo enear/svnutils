@@ -56,15 +56,17 @@ def filter_dirs(paths):
 def join_sub_paths(path, subpaths):
     return [path + subpath for subpath in subpaths]
 
-def print_worker(print_queue):
+def output_worker(output_queue, output_file):
     while True:
-        item = print_queue.get()
+        item = output_queue.get()
         if item is None:
             break
         print(item)
+        if output_file:
+            output_file.write(item + '\n')
 
 def list_svn_recursive_worker(svn_url, username, password,
-                              list_queue, print_queue,
+                              list_queue, output_queue,
                               stops, filters):
     while True:
         task = list_queue.get()
@@ -77,7 +79,7 @@ def list_svn_recursive_worker(svn_url, username, password,
             new_paths = join_sub_paths(task, new_subpaths)
             filtered_new_paths = filter_by_patterns(filters, new_paths)
             for path in filtered_new_paths:
-                print_queue.put(path)
+                output_queue.put(path)
 
             # Recursively list all directories
             new_paths_dirs = filter_dirs(new_paths)
@@ -91,20 +93,26 @@ def list_svn_recursive_worker(svn_url, username, password,
 
 def list_svn_recursive(svn_url, username, password,
                        nthreads = DEFAULT_NR_PROCESSES,
-                       stops = [], filters = []):
-    print_queue = Queue()
+                       stops = [], filters = [],
+                       output_path = None):
+    output_queue = Queue()
     list_queue = Queue()
 
+    # Opens file for writing
+    output_file = None
+    if output_path:
+        output_file = open(output_path, 'w')
+
     # Starts the print worker
-    print_thread = Thread(target = print_worker, args = (print_queue,))
-    print_thread.start()
+    output_thread = Thread(target = output_worker, args = (output_queue, output_file))
+    output_thread.start()
 
     # Starts the recursive list workers
     list_threads = []
     for i in range(nthreads):
         list_thread = Thread(target = list_svn_recursive_worker,
                              args = (svn_url, username, password,
-                                     list_queue, print_queue,
+                                     list_queue, output_queue,
                                      stops, filters))
         list_threads.append(list_thread)
         list_thread.start()
@@ -120,9 +128,12 @@ def list_svn_recursive(svn_url, username, password,
         list_thread.join()
 
     # Terminate printer worker
-    print_queue.put(None)
-    print_thread.join()
+    output_queue.put(None)
+    output_thread.join()
 
+    # Close file
+    if output_file:
+        output_file.close()
 
 def parse_args():
     parser = argparse.ArgumentParser(description='List subversion URL recursively.')
@@ -138,6 +149,7 @@ def parse_args():
     parser.add_argument('--username', default=None, help="svn username")
     parser.add_argument('--ask-password', action='store_true',
                         help="ask for svn password")
+    parser.add_argument('--output-path', default=None, help="Path to output result")
     return parser.parse_args()
 
 def main():
@@ -149,6 +161,7 @@ def main():
     filters = args.filter
     username = args.username
     ask_password = args.ask_password
+    output_path = args.output_path
 
     password = None
     if ask_password:
@@ -158,7 +171,7 @@ def main():
         stops = ["trunk/$", "branches/$", "tags/$"]
         filters = [".*/trunk/"]
 
-    list_svn_recursive(url, username, password, nthreads, stops, filters)
+    list_svn_recursive(url, username, password, nthreads, stops, filters, output_path)
 
 if __name__ == '__main__':
     main()

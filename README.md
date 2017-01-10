@@ -17,6 +17,7 @@ The script includes a detailed usage command:
     usage: recursiveList.py [-h] [--nthreads NTHREADS] [--stop [s [s ...]]]
                             [--filter [f [f ...]]] [--only-trunk-dirs]
                             [--username USERNAME] [--ask-password]
+                            [--output-path OUTPUT_PATH]
                             url
     
     List subversion URL recursively.
@@ -32,7 +33,8 @@ The script includes a detailed usage command:
       --only-trunk-dirs     Lists only trunk directories
       --username USERNAME   svn username
       --ask-password        ask for svn password
-
+      --output-path OUTPUT_PATH
+                            Path to output result
 
 To output all files recursively:
 
@@ -138,5 +140,5 @@ by another.
 
 To checkout only trunk directories:
 
-    $> python3 recursiveList.py <url> --only-trunk-dirs > list.out
+    $> python3 recursiveList.py <url> --only-trunk-dirs --output-path list.out
     $> python3 checkout.py <url> <dest> list.out
