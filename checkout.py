@@ -21,6 +21,7 @@ def _checkout(url, path, username, password):
         args.append("--username")
         args.append(username)
     if password:
+        args.append("--no-auth-cache")
         args.append("--password")
         args.append(password)
     args.append("--depth")
@@ -38,6 +39,7 @@ def _update(path, username, password):
         args.append("--username")
         args.append(username)
     if password:
+        args.append("--no-auth-cache")
         args.append("--password")
         args.append(password)
     args.append("--parents")

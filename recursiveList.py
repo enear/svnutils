@@ -41,6 +41,7 @@ def list_svn(svn_url, username, password):
         args.append("--username")
         args.append(username)
     if password:
+        args.append("--no-auth-cache")
         args.append("--password")
         args.append(password)
     args.append("--depth")
