@@ -107,17 +107,17 @@ def checkout(url, destination, file, username, password, quiet):
         logging.error(ex)
 
 def main():
-    parser = _parse_args()
+    args = _parse_args()
 
-    url = parser.url
-    destination = parser.destination
-    input_path = parser.input
-    username = parser.username
-    ask_password = parser.ask_password
+    url = args.url
+    destination = args.destination
+    input_path = args.input
+    username = args.username
+    ask_password = args.ask_password
     password = None
     if ask_password:
         password = getpass('Password: ')
-    quiet = parser.quiet
+    quiet = args.quiet
 
     with open(input_path, 'r') as file:
       checkout(url, destination, file, username, password, quiet)
